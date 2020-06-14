@@ -3,7 +3,14 @@
 Need to implement own code to get new order or manage an order book in spark
 """
 import collections
-from bfxapi.models.order_book import OrderBook
+
+
+class OrderBook:
+    def __init__(self):
+        self.bids = []
+        self.asks = []
+
+
 import os
 import sys
 # from datetime import datetime
@@ -13,7 +20,7 @@ from bfxapi import Client
 # from bfxapi.websockets.bfx_websocket import Flags
 import kafka
 
-# import time
+import time
 
 # producer_timings = {}
 # def calculate_thoughput(timing, n_messages=1000000, msg_size=100):
@@ -76,7 +83,7 @@ def log_error(err):
 def kafka_send(symbol, data):
     k = ",".join([exchange, symbol]).encode()
     v = ",".join(map(str, data)).encode()
-    print(v)
+    # print(v)
     producer.send('all', key=k, value=v)
 
 
@@ -94,7 +101,9 @@ def update_order(data):
     else:
         flag = 1
         side = book.bids
-    delta = [p, count, q, flag, book.bids[0][0], book.asks[0][0], total_amount[1], total_amount[-1], 0, 0]
+    best_bid = book.bids[0][0] if book.bids else 0
+    best_ask = book.asks[0][0] if book.asks else float("inf")
+    delta = [p, count, q, flag, best_bid, best_ask, total_amount[1], total_amount[-1], 0, 0]
     for index, info in enumerate(side):
         if info[0] == p:
 
@@ -130,7 +139,7 @@ def update_order(data):
         # avg
         delta[8] = running_data[0] / running_data[2]
         # var
-        delta[9] = running_data[1] / running_data[2] - delta[9] ** 2
+        delta[9] = running_data[1] / running_data[2] - delta[8] ** 2
         running_data[2] += 1
         running_data[0] += delta[2]
         running_data[1] += delta[2] ** 2
@@ -139,8 +148,19 @@ def update_order(data):
     return delta
 
 
+c = [0]
+timed = [0, 0]
+
+
 @bfx.ws.on('order_book_update')
 def log_update(data):
+    c[0] += 1
+    if c[0] == 1000:
+        timed[1] = time.time()
+        print(timed[1] - timed[0], c[0] / (timed[1] - timed[0]))
+        c[0] = 0
+        timed[0] = timed[1]
+
     # print(bfx.ws.orderBooks[data['symbol']].asks)
     # print(bfx.ws.orderBooks['tBTCUSD'].asks)
     # print("Book update: {}".format(data))
@@ -170,24 +190,17 @@ def log_snapshot(data):
     total_amount = {}
     running_data = [0, 0, -1]
     stats[data['symbol']] = [total_amount, running_data]
-
-    for x in bfx.ws.orderBooks[data['symbol']].bids:
-        print(x[0], x[1])
-        break
     ob.bids = [x[0].copy() for x in bfx.ws.orderBooks[data['symbol']].bids]
     ob.asks = [[x[0][0], x[0][1], -x[0][2]] for x in bfx.ws.orderBooks[data['symbol']].asks]
     ob.bids.sort(key=lambda x: x[0], reverse=True)
     ob.asks.sort(key=lambda x: x[0])
-    for x in ob.bids:
-        print(x[2])
-        break
-    print(ob.bids[0], ob.bids[0][0], ob.bids[0][1], ob.bids[0][2])
+
     total_amount[1] = sum(x[2] for x in ob.bids)
     total_amount[-1] = sum(x[2] for x in ob.asks)
     running_data[0] += sum(total_amount.values())
     running_data[1] += sum(x[2] ** 2 for x in ob.bids) + sum(x[2] ** 2 for x in ob.asks)
     running_data[2] += sum(x[1] for x in ob.bids) + sum(x[1] for x in ob.asks)
-    print('initial_book')
+    # print('initial_book')
     # print("Initial book: {}".format(data))
     # print(data['symbol'], bfx.ws.orderBooks[data['symbol']].asks)
 
@@ -195,10 +208,12 @@ def log_snapshot(data):
 async def start():
     # print(bfx.ws.orderBooks['tBTCUSD'].asks)
     # await bfx.ws.enable_flag(Flags.TIMESTAMP)
-    await bfx.ws.subscribe('book', 'tBTCUSD', prec='P0', len='25')
+    # await bfx.ws.subscribe('book', 'tBTCUSD', prec='P0', len='25')
     # await bfx.ws.subscribe('book', 'tALGUSD', len='100')
-    # for pair in pairs:
-    #     await bfx.ws.subscribe('book', pair, prec='P0', len='100')
+    timed[0] = time.time()
+    for i, pair in enumerate(pairs):
+        print(i)
+        await bfx.ws.subscribe('book', pair, prec='R0', len='100')
     # await bfx_agg.ws.subscribe('book', pair, prec='P0', len='100')
 
 

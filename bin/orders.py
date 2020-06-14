@@ -25,8 +25,8 @@ df = spark \
 df = df \
     .selectExpr(
     'time',
-    'SPLIT(key, ",")[0] AS basequote',
-    'SPLIT(key, ",")[1] AS exchange',
+    'SPLIT(key, ",")[1] AS basequote',
+    'SPLIT(key, ",")[0] AS exchange',
     'CAST(SPLIT(value, ",")[0] AS DOUBLE) AS price',
     'CAST(SPLIT(value, ",")[1] AS DOUBLE) AS count',
     'CAST(SPLIT(value, ",")[2] AS DOUBLE) AS quantity',
@@ -42,11 +42,18 @@ df = df \
 # send dataframe containing filled and canceled to storage
 # to do
 ##
+query2 = df.writeStream.format("console").start()
+
 df = df.where('quantity>0') \
     .withColumn('mid_price', (df.best_ask + df.best_bid) / 2)
 new_orders = df.withColumn('q_spread', (df.best_ask - df.best_bid) / df.mid_price)
 
+df = df \
+        .groupBy(F.window('time', '1 minute'), 'basequote', 'exchange', 'side') \
+        .agg((F.sum(df.price * df.quantity)/F.sum(df.quantity)).alias('price')) \
+        .selectExpr('window.start AS start', 'basequote', 'exchange', 'price', 'side')
 
+query3 = df.writeStream.format("console").start()
 # one_hour = 3600000
 
 # hour_window = df.groupBy('basequote', 'exchange', 'price', 'bid_or_ask').avg()
@@ -59,7 +66,7 @@ def whale_score(p, q, q_spread, side, mid_price, active_bids, active_asks, avg, 
     tmp = avg ** 2
     geo_mu = tmp / math.sqrt(tmp + var)
     geo_sigma = math.exp(math.sqrt(math.log(1 + var / tmp)))
-    q_score = geo_mu * geo_sigma ** 2
+    q_score = geo_mu * (geo_sigma ** 2)
     if q < q_score:
         return 0
     w = 1
@@ -83,3 +90,5 @@ new_orders = new_orders\
 
 query = new_orders.writeStream.format("console").start()
 query.awaitTermination()
+query2.awaitTermination()
+query3.awaitTermination()
