@@ -11,13 +11,7 @@ class OrderBook:
         self.asks = []
 
 
-import os
-import sys
-# from datetime import datetime
-# from pytz import utc
-
 from bfxapi import Client
-# from bfxapi.websockets.bfx_websocket import Flags
 import kafka
 
 import time
@@ -34,8 +28,8 @@ exchange = "Bitfinex"
 # bfx = Client(logLevel='DEBUG')
 
 host = ['localhost:9092']
-producer = kafka.KafkaProducer(bootstrap_servers=host)
-kafka.KafkaClient(bootstrap_servers=host).add_topic('all')
+# producer = kafka.KafkaProducer(bootstrap_servers=host)
+# kafka.KafkaClient(bootstrap_servers=host).add_topic('all')
 
 pairs = ["ABSUSD", "AGIUSD", "AIDUSD", "AIOBTC", "AIOUSD", "ALGBTC", "ALGUSD", "ALGUST", "AMPBTC", "AMPUSD", "AMPUST",
          "ANTBTC", "ANTETH", "ANTUSD", "ASTUSD", "ATMUSD", "ATOBTC", "ATOETH", "ATOUSD", "AUCUSD", "AVTUSD", "BABBTC",
@@ -69,12 +63,6 @@ local_book = collections.defaultdict(OrderBook)
 stats = collections.defaultdict(list)
 
 
-# key -1 indicates ask, 1 indicates bid
-# total_amount = {-1: 0, 1: 0}
-
-# running_data = [running_total, running_squared_total, running_count] (of new orders)
-# running_data = [0, 0, -1]
-
 @bfx.ws.on('error')
 def log_error(err):
     print("Error: {}".format(err))
@@ -89,6 +77,10 @@ def kafka_send(symbol, data):
 
 def update_order(data):
     # delta = [price, count, quantity, (bid/ask) flag, best_bid, best_ask, total_bid_amount, total_ask_amount, avg, var]
+    # key -1 indicates ask, 1 indicates bid
+    # total_amount = {-1: 0, 1: 0}
+    # running_data = [running_total, running_squared_total, running_count] (of new orders)
+
     p, count, q = data['data']
     book = local_book[data['symbol']]
     total_amount = stats[data['symbol']][0]
@@ -112,21 +104,9 @@ def update_order(data):
                 delta[2] = -info[2]
                 total_amount[flag] += delta[2]
                 del side[index]
+                if delta[8] <= 0 or delta[9] <= 0:
+                    print(delta, q, count, data)
                 return delta
-                # if change_count!=0:
-            #     print("update with price", data, info)
-            # if change_q!=0:
-            #     print("update with quantity", data, info)
-            # if data['data'][1]>count:
-            #     if q>0:
-            #         print("bid price increase", data, info[1], count)
-            #     else:
-            #         print("ask price increase", data, info[1], count)
-            # else:
-            #     if q>0:
-            #         print("bid price decrease", data, info[1], count)
-            #     else:
-            #         print("ask price decrease", data, info[1], count)
             del side[index]
             delta[2] -= info[2]
             # print(side)
@@ -135,31 +115,40 @@ def update_order(data):
     if count == 0:
         return []
     total_amount[flag] += delta[2]
+    # avg
+    delta[8] = running_data[0] / running_data[2]
+    # var
+    delta[9] = running_data[1] / running_data[2] - delta[8] ** 2
+
     if delta[2] > 0:
-        # avg
-        delta[8] = running_data[0] / running_data[2]
-        # var
-        delta[9] = running_data[1] / running_data[2] - delta[8] ** 2
         running_data[2] += 1
         running_data[0] += delta[2]
         running_data[1] += delta[2] ** 2
     side.append([p, count, q])
     side.sort(key=lambda x: x[0], reverse=not flag < 0)
+    if delta[8] <= 0 or delta[9] <= 0:
+        print(delta, q, count, data)
     return delta
 
 
 c = [0]
 timed = [0, 0]
+stime = [time.time(), time.time()]
 
 
 @bfx.ws.on('order_book_update')
 def log_update(data):
     c[0] += 1
-    if c[0] == 1000:
-        timed[1] = time.time()
-        print(timed[1] - timed[0], c[0] / (timed[1] - timed[0]))
+    stime[1] = time.time()
+    if stime[1] - stime[0] > 2:
+        print(c[0], c[0] / (stime[1] - stime[0]), stime[1] - stime[0])
+        stime[0] = stime[1]
         c[0] = 0
-        timed[0] = timed[1]
+    # if c[0] == 6000:
+    #     timed[1] = time.time()
+    #     print(timed[1] - timed[0], c[0] / (timed[1] - timed[0]))
+    #     c[0] = 0
+    #     timed[0] = timed[1]
 
     # print(bfx.ws.orderBooks[data['symbol']].asks)
     # print(bfx.ws.orderBooks['tBTCUSD'].asks)
@@ -177,8 +166,8 @@ def log_update(data):
     #     print(data['symbol'], data['data'])
     # print(data)
     order_change = update_order(data)
-    if order_change:
-        kafka_send(data['symbol'], order_change)
+    # if order_change:
+    #     kafka_send(data['symbol'], order_change)
     # k = data['symbol'].encode()
     # v = ",".join(map(str, data['data'])).encode()
     # producer.send('all', key=k, value=v)
@@ -188,7 +177,7 @@ def log_update(data):
 def log_snapshot(data):
     ob = local_book[data['symbol']] = OrderBook()
     total_amount = {}
-    running_data = [0, 0, -1]
+    running_data = [0, 0, 0]
     stats[data['symbol']] = [total_amount, running_data]
     ob.bids = [x[0].copy() for x in bfx.ws.orderBooks[data['symbol']].bids]
     ob.asks = [[x[0][0], x[0][1], -x[0][2]] for x in bfx.ws.orderBooks[data['symbol']].asks]
@@ -200,6 +189,10 @@ def log_snapshot(data):
     running_data[0] += sum(total_amount.values())
     running_data[1] += sum(x[2] ** 2 for x in ob.bids) + sum(x[2] ** 2 for x in ob.asks)
     running_data[2] += sum(x[1] for x in ob.bids) + sum(x[1] for x in ob.asks)
+    if running_data[1] / running_data[2] < (running_data[0] / running_data[2]) ** 2:
+        print("running", running_data)
+    print("bids", bfx.ws.orderBooks[data['symbol']].bids)
+    print("run", running_data, "bids", ob.bids, "asks", ob.asks)
     # print('initial_book')
     # print("Initial book: {}".format(data))
     # print(data['symbol'], bfx.ws.orderBooks[data['symbol']].asks)
@@ -213,7 +206,7 @@ async def start():
     timed[0] = time.time()
     for i, pair in enumerate(pairs):
         print(i)
-        await bfx.ws.subscribe('book', pair, prec='R0', len='100')
+        await bfx.ws.subscribe('book', pair, prec='P0', len='100')
     # await bfx_agg.ws.subscribe('book', pair, prec='P0', len='100')
 
 
@@ -243,3 +236,5 @@ bfx.ws.run()
 #     await bfx.ws.subscribe('book', 'tBTCUSD')
 #
 # bfx.ws.run()
+
+# kafka host = PLAINTEXT://ec2-54-224-244-135.compute-1.amazonaws.com:9092
