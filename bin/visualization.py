@@ -11,21 +11,23 @@ dbname = "order_books"
 username = "postgres"
 password = ""
 kafka_host = "PLAINTEXT://ip-10-0-0-13.ec2.internal:9092"
-db_host = "ip-10-0-0-11.ec2.internal"
+db_host = "ec2-35-172-82-16.compute-1.amazonaws.com"
 hadoop_host = "ip-10-0-0-8.ec2.internal"
 
-exchange_map = {'bitfinex': 'Bitfinex'}
+exchange_map = {'Bitfinex': 'Bitfinex'}
 exchange_options = [{'label': k, 'value': v} for k, v in exchange_map.items()]
-default_exchange = 'bitfinex'
+default_exchange = 'Bitfinex'
+print(exchange_options)
 
 
 def generate_pairs(exchange):
     with open(f'./trading_pairs/{exchange}.pair', 'r') as f:
-        pairs = ['t' + e.replace('\n', '') for e in f.readlines()]
+        pairs = [e.replace('\n', '') for e in f.readlines()]
+    pairs = list(map(lambda x: 't' + x, pairs))
     return pairs
 
 
-trading_pairs = {exchange: generate_pairs(exchange) for exchange in exchange_map}
+trading_pairs = {exchange: generate_pairs(exchange) for exchange in exchange_map.values()}
 
 # Connect to server
 conn = psycopg2.connect(host=db_host, database=dbname, user=username, password=password)
@@ -46,14 +48,14 @@ app.layout = html.Div(
                 dcc.Dropdown(
                     clearable=False,
                     id='pair-dropdown',
-                    value='BTCUSD'
+                    value='tBTCUSD'
                 )
             ]
         ),
         dcc.Graph(id='live-graph', animate=True),
         dcc.Interval(
             id='graph-update',
-            interval=1 * 1000,
+            interval=60 * 1000,
             n_intervals=0
         ),
     ]
@@ -70,22 +72,27 @@ def update_pairs(dropdown_exchange):
 
 
 @app.callback(
-    Output('live-graph', 'figure')
+    Output('live-graph', 'figure'),
     [Input('graph-update', 'n_intervals'), Input('pair-dropdown', 'value'), Input('exchange-dropdown', 'value')]
 )
 def update_graph(n, pair, exchange):
+    print(pair, exchange)
     cur.execute(f"""
-    SELECT time, price, quantity, side, whale_score FROM new_orders
-    WHERE basequote = {pair} AND exchange = {exchange}
-    ORDER BY time DESC LIMIT 10000
+    SELECT time, price, quantity, side, whale_score,avg FROM new_orders
+    WHERE basequote = '{pair}' AND exchange = '{exchange}'
+    ORDER BY time DESC LIMIT 100
     """
                 )
     rows = cur.fetchall()
-    df = pd.DataFrame(rows, columns=('time', 'price', 'quantity', 'side', 'whale_score'))
-    df['whale_score'] = 1 if df['whale_score'] > 0 else 0
-    df['side, whale'] = list(zip(df.side, df.whale_score))
-    fig = px.scatter(df, x=df['time'], y=df['quantity'], color=df['side'], size=df['quantity'],
-                     labels={'x': 'time', 'y': 'price'})
+    if rows: print(rows[0])
+    if not rows: print("e")
+    df = pd.DataFrame(rows, columns=('time', 'price', 'quantity', 'side', 'whale_score', 'avg'))
+    # df['whale_score'] = 1 if df['whale_score'] > 0 else 0
+    df['whale_score'] = (df['whale_score'] > 0).astype(int)
+    df['side_whale'] = list(zip(df.side, df.whale_score))
+    print(len(list(df.quantity)))
+    fig = px.scatter(df, x=list(df.time), y=list(df.price), color=df.side_whale, size=list(df.quantity),
+                     labels={'x': 'time', 'y': 'price'}, hover_name='avg')
     return fig
 
 
