@@ -92,14 +92,14 @@ newOrders = df.withColumn('q_spread', (df.best_ask - df.best_bid) / df.mid_price
 def whale_score(p, q, q_spread, side, mid_price, active_bids, active_asks, avg, var):
     tmp = avg ** 2
     geo_mu = tmp / math.sqrt(tmp + var)
-    try:
-        geo_sigma = math.exp(math.sqrt(math.log(1 + var / tmp)))
-    except:
-        with open('./logs/bugs', 'wr+') as f:
-            print(p, q, q_spread, side, mid_price, active_bids, active_asks, avg, var)
-            print(tmp)
-        print(var, tmp, avg)
-        geo_sigma = 100
+    # try:
+    geo_sigma = math.exp(math.sqrt(math.log(1 + var / tmp)))
+    # except:
+    #     with open('./logs/bugs', 'wr+') as f:
+    #         print(p, q, q_spread, side, mid_price, active_bids, active_asks, avg, var)
+    #         print(tmp)
+    #     print(var, tmp, avg)
+    #     geo_sigma = 100
     q_score = geo_mu * (geo_sigma ** 2)
     if q < q_score:
         return 0

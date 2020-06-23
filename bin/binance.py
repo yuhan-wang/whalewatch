@@ -1,18 +1,11 @@
 import collections
 import sys
-from pathlib import Path
-from os import environ
 from json import loads
-from datetime import datetime
-import time
 
-from pytz import utc
-from unicorn_binance_websocket_api.unicorn_binance_websocket_api_manager import BinanceWebSocketApiManager
-import kafka
 import requests
-
-from order_book import kafka_send
 from order_book import OrderBook
+from order_book import kafka_send
+from unicorn_binance_websocket_api.unicorn_binance_websocket_api_manager import BinanceWebSocketApiManager
 
 
 class BinanceOrderBook(OrderBook):
@@ -24,8 +17,8 @@ class BinanceOrderBook(OrderBook):
 # retrieve orderbook snapshot
 def get_snapshot(pair):
     r = requests.get(f'https://www.binance.com/api/v1/depth?symbol={pair}&limit=100')
-    print(r.content)
-    print(r.content.decode())
+    # print(r.content)
+    # print(r.content.decode())
     return loads(r.content.decode())
 
 
@@ -35,12 +28,12 @@ manager = BinanceWebSocketApiManager(exchange=exchange)
 with open('./trading_pairs/binance.pair', 'r') as f:
     pairs = [e.replace('\n', '') for e in f.readlines()]
 
-manager.create_stream('depth@100ms', pairs[:10])
+manager.create_stream('depth@100ms', pairs)
 host = 'localhost:9092'
-producer = kafka.KafkaProducer(bootstrap_servers=host)
-kafka.KafkaClient(bootstrap_servers=host).add_topic('all')
-c = 0
-startTime = time.time()
+# producer = kafka.KafkaProducer(bootstrap_servers=host)
+# kafka.KafkaClient(bootstrap_servers=host).add_topic('all')
+# c = 0
+# startTime = time.time()
 
 local_book = collections.defaultdict(BinanceOrderBook)
 
@@ -56,6 +49,7 @@ def process_updates(ob, data):
         # print(data['s'], delta)
         if delta:
             kafka_send(producer, 'all', 'binance', data['s'], delta, timestamp=t)
+            #print(data['s'])
 
     for update in update_asks:
         p = float(update[0])
@@ -92,16 +86,16 @@ try:
             lastUpdateId = ob.lastUpdateId
 
             if data['U'] <= lastUpdateId + 1 <= data['u']:
-                print(f'lastUpdateId {data["u"]}')
+                # print(f'lastUpdateId {data["u"]}')
                 ob.lastUpdateId = data['u']
                 process_updates(ob, data)
             elif data['U'] > lastUpdateId + 1:
-                print("need resync")
-                # del local_book[basequote]
-            else:
-                print("slow webs")
-                print(data['U'], data['u'], data['s'], ob.lastUpdateId)
-                # del local_book[basequote]
+                # print("need resync")
+                del local_book[basequote]
+            # else:
+            #     print("slow webs")
+            #     print(data['U'], data['u'], data['s'], ob.lastUpdateId)
+            # del local_book[basequote]
 
             # for p, q in update_bids:
             #     # print(p,q)

@@ -1,12 +1,6 @@
-"""
-
-Need to implement own code to get new order or manage an order book in spark
-"""
 import collections
-import time
 
 from bfxapi import Client
-
 from order_book import OrderBook
 from order_book import kafka_send
 
@@ -39,19 +33,21 @@ def log_error(err):
     print("Error: {}".format(err))
 
 
-c = [0]
-timed = [0, 0]
-stime = [time.time(), time.time()]
+#
+#
+# c = [0]
+# timed = [0, 0]
+# stime = [time.time(), time.time()]
 
 
 @bfx.ws.on('order_book_update')
 def log_update(data):
-    c[0] += 1
-    stime[1] = time.time()
-    if stime[1] - stime[0] > 2:
-        print(c[0], c[0] / (stime[1] - stime[0]), stime[1] - stime[0])
-        stime[0] = stime[1]
-        c[0] = 0
+    # c[0] += 1
+    # stime[1] = time.time()
+    # if stime[1] - stime[0] > 2:
+    #     print(c[0], c[0] / (stime[1] - stime[0]), stime[1] - stime[0])
+    #     stime[0] = stime[1]
+    #     c[0] = 0
     # if c[0] == 6000:
     #     timed[1] = time.time()
     #     print(timed[1] - timed[0], c[0] / (timed[1] - timed[0]))
@@ -75,9 +71,9 @@ def log_update(data):
     # print(data)
     ob = local_book[data['symbol']]
     order_change = ob.update_order(data['data'])
-    print(order_change)
-    # if order_change:
-    #     kafka_send('all', exchange, data['symbol'], order_change)
+    # print(order_change)
+    if order_change:
+        kafka_send('all', exchange, data['symbol'], order_change)
     # k = data['symbol'].encode()
     # v = ",".join(map(str, data['data'])).encode()
     # producer.send('all', key=k, value=v)
@@ -101,9 +97,9 @@ async def start():
     # await bfx.ws.enable_flag(Flags.TIMESTAMP)
     # await bfx.ws.subscribe('book', 'tBTCUSD', prec='P0', len='25')
     # await bfx.ws.subscribe('book', 'tALGUSD', len='100')
-    timed[0] = time.time()
+    # timed[0] = time.time()
     for i, pair in enumerate(pairs):
-        print(i)
+        # print(i)
         await bfx.ws.subscribe('book', pair, prec='P0', len='100')
     # await bfx_agg.ws.subscribe('book', pair, prec='P0', len='100')
 
