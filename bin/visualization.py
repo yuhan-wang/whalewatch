@@ -10,7 +10,6 @@ from dash.dependencies import Output, Input
 dbname = "order_books"
 username = "postgres"
 password = ""
-kafka_host = "PLAINTEXT://ip-10-0-0-13.ec2.internal:9092"
 db_host = "ec2-35-172-82-16.compute-1.amazonaws.com"
 hadoop_host = "ip-10-0-0-8.ec2.internal"
 
@@ -18,9 +17,6 @@ exchange_map = {'Bitfinex': 'Bitfinex', 'Binance.com': 'binance'}
 exchange_options = [{'label': k, 'value': v} for k, v in exchange_map.items()]
 default_exchange = 'Bitfinex'
 btcusd_default = {'Bitfinex': 'tBTCUSD', 'binance': 'BTCUSDT'}
-
-
-# print(exchange_options)
 
 
 def generate_pairs(exchange):
@@ -98,7 +94,6 @@ def update_defaultPair(dropdown_exchange):
 )
 def update_pairs(dropdown_exchange):
     options = [{'label': pair, 'value': pair} for pair in trading_pairs[dropdown_exchange]]
-    # print(dropdown_exchange, trading_pairs)
     return options
 
 
@@ -117,13 +112,9 @@ def update_graph(n, pair, exchange):
     rows = cur.fetchall()
     if not rows:
         return px.scatter(labels={'x': 'time', 'y': 'price'})
-    # if rows: print(rows[0])
-    # if not rows: print("e")
     df = pd.DataFrame(rows, columns=('time', 'price', 'quantity', 'side', 'whale_score', 'avg'))
-    # df['whale_score'] = 1 if df['whale_score'] > 0 else 0
     df['whale_score'] = (df['whale_score'] > 0).astype(int)
     df['side_whale'] = list(zip(df.side, df.whale_score))
-    # print(len(list(df.quantity)))
     fig = px.scatter(df, x=df.time, y=df.price, color=df.side_whale, size=df.quantity,
                      labels={'x': 'time', 'y': 'price'},
                      color_discrete_map={(-1, 0): "red", (1, 0): "green", (-1, 1): "blue", (1, 1): "blue"})

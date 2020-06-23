@@ -4,7 +4,6 @@ import collections
 def kafka_send(producer, topic, exchange, symbol, data, timestamp=None):
     k = ",".join([exchange, symbol]).encode()
     v = ",".join(map(str, data)).encode()
-    # print(v)
     producer.send(topic, key=k, value=v, timestamp_ms=timestamp)
 
 
@@ -29,6 +28,7 @@ class OrderBook:
         self._get_stats()
 
     def initializeBookForBinance(self, bids, asks):
+
         # para bids, asks are lists of [price : String, quantity: String]
         self.bids = [[float(x[0]), 1, float(x[1])] for x in bids]
         self.asks = [[float(x[0]), 1, float(x[1])] for x in asks]
@@ -77,16 +77,15 @@ class OrderBook:
                     delta[2] = -info[2]
                     total_amount[flag] += delta[2]
                     del side[index]
-                    # if delta[8] <= 0 or delta[9] <= 0:
-                    #     print(delta, q, count, data)
                     return delta
                 del side[index]
                 delta[2] -= info[2]
-                # print(side)
                 break
+
         # if price level not present in the order book or no change at all
         if count == 0 or delta[2] == 0:
             return []
+
         total_amount[flag] += delta[2]
         # avg
         delta[8] = running_data[0] / running_data[2]
@@ -98,8 +97,7 @@ class OrderBook:
             running_data[2] += 1
             running_data[0] += delta[2]
             running_data[1] += delta[2] ** 2
+
         side.append([p, count, q])
         side.sort(key=lambda x: x[0], reverse=not flag < 0)
-        # if delta[8] <= 0 or delta[9] <= 0:
-        #     print(delta, q, count, data)
         return delta
