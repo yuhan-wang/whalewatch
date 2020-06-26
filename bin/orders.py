@@ -73,22 +73,6 @@ df = df.where('quantity>0') \
 newOrders = df.withColumn('q_spread', (df.best_ask - df.best_bid) / df.mid_price)
 
 
-# df = df \
-#     .groupBy(F.window('time', '1 minute'), 'basequote', 'exchange', 'side') \
-#     .agg((F.sum(df.price * df.quantity) / F.sum(df.quantity)).alias('price')) \
-#     .selectExpr('window.start AS start', 'basequote', 'exchange', 'price', 'side')
-#
-# query3 = df.writeStream.format("console").start()
-
-
-# one_hour = 3600000
-
-# hour_window = df.groupBy('basequote', 'exchange', 'price', 'bid_or_ask').avg()
-# df = df.withColumn("epoch_seconds", df.time.cast("long"))
-
-# new_orders = new_orders\
-#     .withColumn('avg_size', F.avg('quantity').over(hour_window)) \
-#     .withColumn('stddev_size', F.stddev('quantity').over(hour_window))
 def whale_score(p, q, q_spread, side, mid_price, active_bids, active_asks, avg, var):
     tmp = avg ** 2
     geo_mu = tmp / math.sqrt(tmp + var)
@@ -113,7 +97,7 @@ def whale_score(p, q, q_spread, side, mid_price, active_bids, active_asks, avg, 
         w += 1
     if side * (mid_price - p) / mid_price < 0.001:
         w += 1
-    if q > (active_bids - active_asks) * side * 10:
+    if q > abs(active_bids - active_asks) * 10:
         w += 1
     return w
 
