@@ -12,7 +12,7 @@ Detect real-time market manipulation for the cryptocurrency market by examining 
 1. [Contact Information](README.md#contact-information)
 
 ## Motivation
-The cryptocurrency market is rapidly expanding: as of 06/23/2020 had a market capitalisation of around 275 billion US dollars ([CoinMarketCap](coinmarketcap.com)) making it comparable to the GDP of Finland. Despite the vast amounts of money being invested and traded into cryptocurrencies, they are largely unregulated and as a result become a hot bed for price manipulation. While there are numerous types of market manipulations, a common practice performed by the bad actors is whale trading, where traders with deep pocket (a.k.a whales) place orders of enormous size to swing the prices in their favor.
+The cryptocurrency market is rapidly expanding: as of 06/23/2020 had a market capitalisation of around 275 billion US dollars ([CoinMarketCap](http://coinmarketcap.com)) making it comparable to the GDP of Finland. Despite the vast amounts of money being invested and traded into cryptocurrencies, they are largely unregulated and as a result become a hot bed for price manipulation. While there are numerous types of market manipulations, a common practice performed by the bad actors is whale trading, where traders with deep pocket (a.k.a whales) place orders of enormous size to swing the prices in their favor.
 
 This project aims at building a monitor system to identify orders with anomalous sizes by streaming live order book data from 2 cryptocurrency exchanges Bitfinex and Binance. The users can then take appropriate actions knowing that there might be artificial price movements.
 
