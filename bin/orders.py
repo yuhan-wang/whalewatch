@@ -109,11 +109,14 @@ def whale_score(p, q, q_spread, side, mid_price, active_bids, active_asks, avg, 
         if q < q_score:
             break
         w += 1
+    # check if market is illiquid
     if q_spread > 0.01:
         w += 1
+    # check if price is close to the best price
     if side * (mid_price - p) / mid_price < 0.001:
         w += 1
-    if q > (active_bids - active_asks) * side * 10:
+    # check if quantity is significant compared to the ask/bid book difference
+    if q > abs(active_bids - active_asks) * 10:
         w += 1
     return w
 
