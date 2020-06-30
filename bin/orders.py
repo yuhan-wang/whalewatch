@@ -41,7 +41,7 @@ df = spark \
     .option('subscribe', 'all') \
     .load() \
     .selectExpr('CAST(key AS STRING)', 'CAST(value AS STRING)', 'timestamp AS time')
-# df.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
+
 df = df \
     .selectExpr(
     'time',
@@ -59,9 +59,7 @@ df = df \
     'CAST(SPLIT(value, ",")[9] AS DOUBLE) AS var',
 ) \
     .withWatermark('time', '1 minute')
-# send dataframe containing filled and canceled to storage
-# to do
-##
+
 allQuery = df \
     .writeStream \
     .option('checkpointLocation', f'hdfs://{hadoop_host}:9000/ckpt/all') \
@@ -72,34 +70,10 @@ df = df.where('quantity>0') \
     .withColumn('mid_price', (df.best_ask + df.best_bid) / 2)
 newOrders = df.withColumn('q_spread', (df.best_ask - df.best_bid) / df.mid_price)
 
-
-# df = df \
-#     .groupBy(F.window('time', '1 minute'), 'basequote', 'exchange', 'side') \
-#     .agg((F.sum(df.price * df.quantity) / F.sum(df.quantity)).alias('price')) \
-#     .selectExpr('window.start AS start', 'basequote', 'exchange', 'price', 'side')
-#
-# query3 = df.writeStream.format("console").start()
-
-
-# one_hour = 3600000
-
-# hour_window = df.groupBy('basequote', 'exchange', 'price', 'bid_or_ask').avg()
-# df = df.withColumn("epoch_seconds", df.time.cast("long"))
-
-# new_orders = new_orders\
-#     .withColumn('avg_size', F.avg('quantity').over(hour_window)) \
-#     .withColumn('stddev_size', F.stddev('quantity').over(hour_window))
 def whale_score(p, q, q_spread, side, mid_price, active_bids, active_asks, avg, var):
     tmp = avg ** 2
     geo_mu = tmp / math.sqrt(tmp + var)
-    # try:
     geo_sigma = math.exp(math.sqrt(math.log(1 + var / tmp)))
-    # except:
-    #     with open('./logs/bugs', 'wr+') as f:
-    #         print(p, q, q_spread, side, mid_price, active_bids, active_asks, avg, var)
-    #         print(tmp)
-    #     print(var, tmp, avg)
-    #     geo_sigma = 100
     q_score = geo_mu * (geo_sigma ** 2)
     if q < q_score:
         return 0
@@ -133,4 +107,3 @@ newOrdersQuery = newOrders \
     .start()
 allQuery.awaitTermination()
 newOrdersQuery.awaitTermination()
-# query3.awaitTermination()
