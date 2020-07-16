@@ -102,9 +102,8 @@ def update_pairs(dropdown_exchange):
     [Input('graph-update', 'n_intervals'), Input('pair-dropdown', 'value'), Input('exchange-dropdown', 'value')]
 )
 def update_graph(n, pair, exchange):
-    # print(pair, exchange)
     cur.execute(f"""
-    SELECT time, price, quantity, side, whale_score,avg FROM new_orders
+    SELECT time, price, quantity, side, whale_score,avg FROM b_test_new_orders
     WHERE basequote = '{pair}' AND exchange = '{exchange}'
     ORDER BY time DESC LIMIT 100
     """

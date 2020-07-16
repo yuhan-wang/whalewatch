@@ -1,5 +1,7 @@
 import collections
 
+from sortedcontainers import SortedDict
+
 
 def kafka_send(producer, topic, exchange, symbol, data, timestamp=None):
     k = ",".join([exchange, symbol]).encode()
@@ -10,8 +12,8 @@ def kafka_send(producer, topic, exchange, symbol, data, timestamp=None):
 class OrderBook:
     def __init__(self):
 
-        self.bids = []
-        self.asks = []
+        self.bids = SortedDict()
+        self.asks = SortedDict()
         self.stats = collections.defaultdict(list)
 
     def initialize_book(self, exchange, bids, asks):
@@ -23,32 +25,33 @@ class OrderBook:
     def initializeBookForBitfinex(self, bids, asks):
 
         # para bids,asks are lists of tuples (x,y) where x=[price, count, quantity]
-        self.bids = [x[0].copy() for x in bids]
-        self.asks = [[x[0][0], x[0][1], -x[0][2]] for x in asks]
+        self.bids = SortedDict({x[0][0]: [x[0][1], x[0][2]] for x in bids})
+        self.asks = SortedDict({x[0][0]: [x[0][1], -x[0][2]] for x in asks})
         self._get_stats()
 
     def initializeBookForBinance(self, bids, asks):
 
         # para bids, asks are lists of [price : String, quantity: String]
-        self.bids = [[float(x[0]), 1, float(x[1])] for x in bids]
-        self.asks = [[float(x[0]), 1, float(x[1])] for x in asks]
+        self.bids = SortedDict({float(x[0]): [1, float(x[1])] for x in bids})
+        self.asks = SortedDict({float(x[0]): [1, float(x[1])] for x in asks})
         self._get_stats()
 
     def _get_stats(self):
-        self.bids.sort(key=lambda x: x[0], reverse=True)
-        self.asks.sort(key=lambda x: x[0])
+        # self.bids.sort(key=lambda x: x[0], reverse=True)
+        # self.asks.sort(key=lambda x: x[0])
 
-        # key -1 indicates ask, 1 indicates bid total_amount = {-1: 0, 1: 0}
+        # key -1 indicates ask, 1 indicates bid
+        # total_amount= {-1: total_ask_quantity, 1: total_bid_quantity}
         # running_data = [running_total, running_squared_total, running_count] (of new orders)
         total_amount = {}
         running_data = [0, 0, 0]
         self.stats = [total_amount, running_data]
 
-        total_amount[1] = sum(x[2] for x in self.bids)
-        total_amount[-1] = sum(x[2] for x in self.asks)
+        total_amount[1] = sum(x[1] for x in self.bids.values())
+        total_amount[-1] = sum(x[1] for x in self.asks.values())
         running_data[0] += sum(total_amount.values())
-        running_data[1] += sum(x[2] ** 2 for x in self.bids) + sum(x[2] ** 2 for x in self.asks)
-        running_data[2] += sum(x[1] for x in self.bids) + sum(x[1] for x in self.asks)
+        running_data[1] += sum(x[1] ** 2 for x in self.bids.values()) + sum(x[1] ** 2 for x in self.asks.values())
+        running_data[2] += sum(x[0] for x in self.bids.values()) + sum(x[0] for x in self.asks.values())
 
     def update_order(self, data):
         # delta = [price, count, quantity, (bid/ask) flag, best_bid, best_ask, total_bid_amount, total_ask_amount,
@@ -66,25 +69,38 @@ class OrderBook:
         else:
             flag = 1
             side = book.bids
-        best_bid = book.bids[0][0] if book.bids else 0
-        best_ask = book.asks[0][0] if book.asks else float("inf")
+        best_bid = book.bids.peekitem()[0] if book.bids else 0
+        best_ask = book.asks.peekitem(0)[0] if book.asks else float("inf")
         delta = [p, count, q, flag, best_bid, best_ask, total_amount[1], total_amount[-1], 0, 0]
-        for index, info in enumerate(side):
-            if info[0] == p:
-
-                delta[1] -= info[1]
-                if count == 0:
-                    delta[2] = -info[2]
-                    total_amount[flag] += delta[2]
-                    del side[index]
-                    return delta
-                del side[index]
-                delta[2] -= info[2]
-                break
+        if p in side:
+            delta[1] -= side[p][0]
+            delta[2] -= side[p][1]
+            if count == 0:
+                total_amount[flag] += delta[2]
+                del side[p]
+                return delta
+            side[p][0] = count
+            side[p][1] = q
+        else:
+            return []
+        if delta[2] == 0:
+            return []
+        # for index, info in enumerate(side):
+        #     if info[0] == p:
+        #
+        #         delta[1] -= info[1]
+        #         if count == 0:
+        #             delta[2] = -info[2]
+        #             total_amount[flag] += delta[2]
+        #             del side[index]
+        #             return delta
+        #         del side[index]
+        #         delta[2] -= info[2]
+        #         break
 
         # if price level not present in the order book or no change at all
-        if count == 0 or delta[2] == 0:
-            return []
+        # if count == 0 or delta[2] == 0:
+        # return []
 
         total_amount[flag] += delta[2]
         # avg
@@ -98,6 +114,6 @@ class OrderBook:
             running_data[0] += delta[2]
             running_data[1] += delta[2] ** 2
 
-        side.append([p, count, q])
-        side.sort(key=lambda x: x[0], reverse=not flag < 0)
+        # side.append([p, count, q])
+        # side.sort(key=lambda x: x[0], reverse=not flag < 0)
         return delta

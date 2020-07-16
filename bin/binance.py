@@ -59,18 +59,16 @@ def process_updates(ob, data):
 
 
 async def consume_update(data, lock, session):
-    base_quote = data['s']
-
+    basequote = data['s']
     # check for orderbook, if empty retrieve
-    if base_quote not in local_book:
+    if basequote not in local_book:
         async with lock:
-            raw_book = await get_snapshot(base_quote, session)
-
-        ob = local_book[base_quote] = BinanceOrderBook(raw_book['lastUpdateId'])
-        ob.initialize_book('binance', raw_book['bids'], raw_book['asks'])
+            raw_book = await get_snapshot(basequote, session)
+            ob = local_book[basequote] = BinanceOrderBook(raw_book['lastUpdateId'])
+            ob.initialize_book('binance', raw_book['bids'], raw_book['asks'])
 
     # get lastUpdateId
-    ob = local_book[base_quote]
+    ob = local_book[basequote]
     lastUpdateId = ob.lastUpdateId
 
     # maintain local order book according to Binance API
@@ -80,7 +78,7 @@ async def consume_update(data, lock, session):
         process_updates(ob, data)
 
     elif data['U'] > lastUpdateId + 1:
-        del local_book[base_quote]
+        del local_book[basequote]
 
 
 async def evt_loop(locks, session):
@@ -94,14 +92,20 @@ async def evt_loop(locks, session):
             await consume_update(data, locks[data['s']], session)
 
 
-manager.create_stream('depth@100ms', pairs)
-try:
+async def main():
     locks = {pair: asyncio.Lock() for pair in pairs}
     manager.create_stream('depth@100ms', pairs)
     async with aiohttp.ClientSession() as session:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         loop.create_task(evt_loop(locks, session))
-        loop.run_forever()
+        while True:
+            await asyncio.sleep(3600)
+
+
+try:
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())
+    loop.run_forever()
 except KeyboardInterrupt:
     manager.stop_manager_with_all_streams()
     sys.exit(0)

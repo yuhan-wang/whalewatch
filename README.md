@@ -17,7 +17,7 @@ The cryptocurrency market is rapidly expanding: as of 06/23/2020 had a market ca
 This project aims at building a monitor system to identify orders with anomalous sizes by streaming live order book data from 2 cryptocurrency exchanges Bitfinex and Binance. The users can then take appropriate actions knowing that there might be artificial price movements.
 
 ## Approach
-$fig to be added
+
 1. By using the websocket API packages provided by Bitfinex and Binance,we first ingests (real-time or per 100ms) order book data of all trading pairs available for the spot market into the pipeline.
 2. Kafka producers use the data to maintain a local order book as well as calculate various statistics before sending the enhanced messages to the topic `all`
 3. Spark Structured Streaming executors consumes the data and filtered the new orders and compute a metric called `whale_score` to be used to identity whales before sending the data to the PostgreSQL database `order_books`.
@@ -84,15 +84,14 @@ Assume the order sizes say ``q`` follow a lognormal distribution. Transform ``q`
 4. Add 1 to **whale_score** if the size is more than 10 times the order imbalance (difference in the sizes of open bids and asks)
 
 ## To-Do's
-1. The codes can be further cleaned and modualarized:
+1. Paralellize order book updates processing, right now the processing can be as slow as 2000/s for Binance, which creates a huge delay.
+2. The codes can be further cleaned and modualarized:
 * Instead of modifying the scripts to change the hosts and SQL server username and password, use system arguments to supply them. 
 * The computation for the metric **whale_score** is hard-coded. It should allow users to apply different models to compute the metric. For example, a different prior distribution.
-
-2. Support more exchanges:
+3. Support more exchanges:
 * Either use third-party packages such as [cryptofeed](https://github.com/bmoscon/cryptofeed)
 * Or write more producer scripts
-
-3. Decouple the mointor system and raw data storage to improve performance
+4. Decouple the mointor system and raw data storage to improve performance
 * Instead of using the PostgreSQL server sink, use Kafka as a sink and then the front-end works as a consumer
 * The raw order data can still be sent to the databse server
 
