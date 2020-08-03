@@ -37,12 +37,6 @@ class OrderBook:
         self._get_stats()
 
     def _get_stats(self):
-        # self.bids.sort(key=lambda x: x[0], reverse=True)
-        # self.asks.sort(key=lambda x: x[0])
-
-        # key -1 indicates ask, 1 indicates bid
-        # total_amount= {-1: total_ask_quantity, 1: total_bid_quantity}
-        # running_data = [running_total, running_squared_total, running_count] (of new orders)
         total_amount = {}
         running_data = [0, 0, 0]
         self.stats = [total_amount, running_data]
@@ -85,22 +79,6 @@ class OrderBook:
             return []
         if delta[2] == 0:
             return []
-        # for index, info in enumerate(side):
-        #     if info[0] == p:
-        #
-        #         delta[1] -= info[1]
-        #         if count == 0:
-        #             delta[2] = -info[2]
-        #             total_amount[flag] += delta[2]
-        #             del side[index]
-        #             return delta
-        #         del side[index]
-        #         delta[2] -= info[2]
-        #         break
-
-        # if price level not present in the order book or no change at all
-        # if count == 0 or delta[2] == 0:
-        # return []
 
         total_amount[flag] += delta[2]
         # avg
@@ -113,7 +91,5 @@ class OrderBook:
             running_data[2] += 1
             running_data[0] += delta[2]
             running_data[1] += delta[2] ** 2
-
-        # side.append([p, count, q])
-        # side.sort(key=lambda x: x[0], reverse=not flag < 0)
+            
         return delta
