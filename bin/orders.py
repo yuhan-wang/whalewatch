@@ -19,7 +19,7 @@ def write_batch(batch, batchId, host, username, password, dbname, tablename, por
 
     url = "jdbc:postgresql://{}:{}/{}".format(host, portnum, dbname)
     properties = {"user": username, "password": password, "driver": "org.postgresql.Driver"}
-    batch.write.jdbc(url=url, table=tablename, mode='append', properties=properties).save()
+    batch.write.jdbc(url=url, table=tablename, mode='append', properties=properties)
 
 
 def writeBatchAll(batch, batchId):
