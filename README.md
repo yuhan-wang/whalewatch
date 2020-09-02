@@ -33,7 +33,7 @@ This project aims at building a monitor system to identify orders with anomalous
 * Make sure the `spark-default.conf` file is modified to add the `postgreql.jar` installed to the (spark) driver extraClass
 * Clone this repo to all instances
 * Modify the hosts, username and passwords in the producer scripts ``binance.py`` ``bitfinex.py``, spark script ``orders.py`` and front-end script ``visualization.py``.
-* Run producer scripts on Kafka instance(s) (the same producer should be on one node only)
+* Run producer scripts on Kafka instance(s) (You may want to modify the list of currencies for binance and run a few scripts in parallel to reduce latency)
 * Submit Spark job on the master instance of the Spark cluster 
 * Specify the host and run the Dash front-end script
 * Open the host address on a browser
