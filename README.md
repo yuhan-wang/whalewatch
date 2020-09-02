@@ -17,7 +17,7 @@ The cryptocurrency market is rapidly expanding: as of 06/23/2020 had a market ca
 This project aims at building a monitor system to identify orders with anomalous sizes by streaming live order book data from 2 cryptocurrency exchanges Bitfinex and Binance. The users can then take appropriate actions knowing that there might be artificial price movements.
 
 ## Approach
-
+![pipeline](https://github.com/yuhan-wang/whalewatch/blob/master/Screen%20Shot%202020-09-02%20at%201.57.49%20PM.png)
 1. By using the websocket API packages provided by Bitfinex and Binance,we first ingests (real-time or per 100ms) order book data of all trading pairs available for the spot market into the pipeline.
 2. Kafka producers use the data to maintain a local order book as well as calculate various statistics before sending the enhanced messages to the topic `all`
 3. Spark Structured Streaming executors consumes the data and filtered the new orders and compute a metric called `whale_score` to be used to identity whales before sending the data to the PostgreSQL database `order_books`.
