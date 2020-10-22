@@ -29,7 +29,7 @@ def log_update(data):
     order_change = ob.update_order(data['data'])
 
     if order_change:
-        kafka_send('all', exchange, data['symbol'], order_change)
+        kafka_send(producer, 'all', exchange, data['symbol'], order_change)
 
 
 @bfx.ws.on('order_book_snapshot')
